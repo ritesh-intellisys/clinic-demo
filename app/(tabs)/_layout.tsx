@@ -11,7 +11,8 @@ import {
   Stethoscope,
   Upload,
   Bell,
-  CreditCard
+  CreditCard,
+  BarChart3
 } from 'lucide-react-native';
 
 export default function TabLayout() {
@@ -24,9 +25,9 @@ export default function TabLayout() {
       case 'receptionist':
         return [
           {
-            name: 'index',
+            name: 'dashboard',
             title: 'Dashboard',
-            icon: Home,
+            icon: BarChart3,
           },
           {
             name: 'patients',
