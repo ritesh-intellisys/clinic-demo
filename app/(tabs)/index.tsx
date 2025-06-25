@@ -1,6 +1,11 @@
+import AddPatientModal from '@/components/modals/AddPatientModal';
+import ScheduleAppointmentModal from '@/components/modals/ScheduleAppointmentModal';
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import { useAuth } from '@/contexts/AuthContext';
+import { DashboardStats, calculateDashboardStats, initializeAppointments } from '@/utils/dashboardUtils';
+import { initializeStorage } from '@/utils/storage';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Activity,
   AlertCircle,
@@ -11,7 +16,7 @@ import {
   TrendingUp,
   Users
 } from 'lucide-react-native';
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -19,29 +24,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-
-type ReceptionistStats = {
-  totalPatients: number;
-  todayAppointments: number;
-  pendingReports: number;
-  newRegistrations: number;
-};
-
-type DoctorStats = {
-  todayPatients: number;
-  pendingPrescriptions: number;
-  completedConsultations: number;
-  criticalAlerts: number;
-};
-
-type PatientStats = {
-  upcomingAppointments: number;
-  activePrescriptions: number;
-  labReports: number;
-  lastVisit: string;
-};
-
-type Stats = ReceptionistStats | DoctorStats | PatientStats;
 
 type ReceptionistActivity = {
   id: number;
@@ -66,32 +48,11 @@ type PatientActivity = {
 
 type Activity = ReceptionistActivity | DoctorActivity | PatientActivity;
 
-const mockStats = {
-  receptionist: {
-    totalPatients: 156,
-    todayAppointments: 12,
-    pendingReports: 8,
-    newRegistrations: 5,
-  } as ReceptionistStats,
-  doctor: {
-    todayPatients: 8,
-    pendingPrescriptions: 3,
-    completedConsultations: 15,
-    criticalAlerts: 2,
-  } as DoctorStats,
-  patient: {
-    upcomingAppointments: 1,
-    activePrescriptions: 2,
-    labReports: 4,
-    lastVisit: '2 days ago',
-  } as PatientStats,
-};
-
 const recentActivities = {
   receptionist: [
-    { id: 1, action: 'New patient registered', patient: 'John Doe', time: '10 min ago' },
-    { id: 2, action: 'Lab report uploaded', patient: 'Sarah Wilson', time: '25 min ago' },
-    { id: 3, action: 'Appointment scheduled', patient: 'Mike Johnson', time: '1 hour ago' },
+    { id: 1, action: 'New patient registered', patient: 'Rahul Verma', time: '10 min ago' },
+    { id: 2, action: 'Lab report uploaded', patient: 'Sarah Dsouza', time: '25 min ago' },
+    { id: 3, action: 'Appointment scheduled', patient: 'Ramesh Jadhav', time: '1 hour ago' },
   ] as ReceptionistActivity[],
   doctor: [
     { id: 1, action: 'Prescription issued', patient: 'Emma Davis', time: '15 min ago' },
@@ -107,88 +68,122 @@ const recentActivities = {
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPatients: 0,
+    todayAppointments: 0,
+    pendingReports: 0,
+    newRegistrations: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false);
+  const [showScheduleAppointmentModal, setShowScheduleAppointmentModal] = useState(false);
 
   if (!user) return null;
 
-  const stats = mockStats[user.role];
   const activities = recentActivities[user.role];
+
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      await initializeStorage();
+      await initializeAppointments();
+      const dashboardStats = await calculateDashboardStats();
+      setStats(dashboardStats);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
+
+  const handleDataUpdate = () => {
+    loadDashboardData();
+  };
 
   const renderStatsCards = () => {
     switch (user.role) {
       case 'receptionist':
-        const receptionistStats = stats as ReceptionistStats;
         return (
           <View style={styles.statsGrid}>
             <Card style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
               <Users size={24} color="#1976D2" />
-              <Text style={styles.statNumber}>{receptionistStats.totalPatients}</Text>
+              <Text style={styles.statNumber}>{isLoading ? '...' : stats.totalPatients}</Text>
               <Text style={styles.statLabel}>Total Patients</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#E8F5E8' }]}>
               <Calendar size={24} color="#2E7D32" />
-              <Text style={styles.statNumber}>{receptionistStats.todayAppointments}</Text>
+              <Text style={styles.statNumber}>{isLoading ? '...' : stats.todayAppointments}</Text>
               <Text style={styles.statLabel}>Today's Appointments</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
               <FileText size={24} color="#F57C00" />
-              <Text style={styles.statNumber}>{receptionistStats.pendingReports}</Text>
+              <Text style={styles.statNumber}>{isLoading ? '...' : stats.pendingReports}</Text>
               <Text style={styles.statLabel}>Pending Reports</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
               <TrendingUp size={24} color="#7B1FA2" />
-              <Text style={styles.statNumber}>{receptionistStats.newRegistrations}</Text>
+              <Text style={styles.statNumber}>{isLoading ? '...' : stats.newRegistrations}</Text>
               <Text style={styles.statLabel}>New Registrations</Text>
             </Card>
           </View>
         );
       case 'doctor':
-        const doctorStats = stats as DoctorStats;
         return (
           <View style={styles.statsGrid}>
             <Card style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
               <Users size={24} color="#1976D2" />
-              <Text style={styles.statNumber}>{doctorStats.todayPatients}</Text>
+              <Text style={styles.statNumber}>{isLoading ? '...' : stats.todayAppointments}</Text>
               <Text style={styles.statLabel}>Today's Patients</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
               <FileText size={24} color="#F57C00" />
-              <Text style={styles.statNumber}>{doctorStats.pendingPrescriptions}</Text>
+              <Text style={styles.statNumber}>3</Text>
               <Text style={styles.statLabel}>Pending Prescriptions</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#E8F5E8' }]}>
               <Activity size={24} color="#2E7D32" />
-              <Text style={styles.statNumber}>{doctorStats.completedConsultations}</Text>
+              <Text style={styles.statNumber}>15</Text>
               <Text style={styles.statLabel}>Completed Today</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#FFEBEE' }]}>
               <AlertCircle size={24} color="#D32F2F" />
-              <Text style={styles.statNumber}>{doctorStats.criticalAlerts}</Text>
+              <Text style={styles.statNumber}>2</Text>
               <Text style={styles.statLabel}>Critical Alerts</Text>
             </Card>
           </View>
         );
       case 'patient':
-        const patientStats = stats as PatientStats;
         return (
           <View style={styles.statsGrid}>
             <Card style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
               <Calendar size={24} color="#1976D2" />
-              <Text style={styles.statNumber}>{patientStats.upcomingAppointments}</Text>
+              <Text style={styles.statNumber}>1</Text>
               <Text style={styles.statLabel}>Upcoming Appointments</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#E8F5E8' }]}>
               <FileText size={24} color="#2E7D32" />
-              <Text style={styles.statNumber}>{patientStats.activePrescriptions}</Text>
+              <Text style={styles.statNumber}>2</Text>
               <Text style={styles.statLabel}>Active Prescriptions</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
               <FileText size={24} color="#F57C00" />
-              <Text style={styles.statNumber}>{patientStats.labReports}</Text>
+              <Text style={styles.statNumber}>4</Text>
               <Text style={styles.statLabel}>Lab Reports</Text>
             </Card>
             <Card style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
               <Clock size={24} color="#7B1FA2" />
-              <Text style={styles.statText}>{patientStats.lastVisit}</Text>
+              <Text style={styles.statText}>2 days ago</Text>
               <Text style={styles.statLabel}>Last Visit</Text>
             </Card>
           </View>
@@ -200,21 +195,36 @@ export default function DashboardScreen() {
     switch (user.role) {
       case 'receptionist':
         return [
-          { title: 'Add Patient', icon: Plus, color: '#1976D2' },
-          { title: 'Upload Report', icon: FileText, color: '#2E7D32' },
-          { title: 'Schedule Appointment', icon: Calendar, color: '#F57C00' },
+          { 
+            title: 'Add Patient', 
+            icon: Plus, 
+            color: '#1976D2',
+            onPress: () => setShowAddPatientModal(true)
+          },
+          { 
+            title: 'Upload Report', 
+            icon: FileText, 
+            color: '#2E7D32',
+            onPress: () => console.log('Upload Report')
+          },
+          { 
+            title: 'Schedule Appointment', 
+            icon: Calendar, 
+            color: '#F57C00',
+            onPress: () => setShowScheduleAppointmentModal(true)
+          },
         ];
       case 'doctor':
         return [
-          { title: 'New Prescription', icon: Plus, color: '#1976D2' },
-          { title: 'View Patients', icon: Users, color: '#2E7D32' },
-          { title: 'Review Reports', icon: FileText, color: '#F57C00' },
+          { title: 'New Prescription', icon: Plus, color: '#1976D2', onPress: () => {} },
+          { title: 'View Patients', icon: Users, color: '#2E7D32', onPress: () => {} },
+          { title: 'Review Reports', icon: FileText, color: '#F57C00', onPress: () => {} },
         ];
       case 'patient':
         return [
-          { title: 'Book Appointment', icon: Calendar, color: '#1976D2' },
-          { title: 'View Prescriptions', icon: FileText, color: '#2E7D32' },
-          { title: 'Lab Reports', icon: FileText, color: '#F57C00' },
+          { title: 'Book Appointment', icon: Calendar, color: '#1976D2', onPress: () => {} },
+          { title: 'View Prescriptions', icon: FileText, color: '#2E7D32', onPress: () => {} },
+          { title: 'Lab Reports', icon: FileText, color: '#F57C00', onPress: () => {} },
         ];
       default:
         return [];
@@ -245,7 +255,11 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             {getQuickActions().map((action, index) => (
-              <TouchableOpacity key={index} style={styles.quickAction}>
+              <TouchableOpacity 
+                key={index} 
+                style={styles.quickAction}
+                onPress={action.onPress}
+              >
                 <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
                   <action.icon size={24} color={action.color} />
                 </View>
@@ -273,6 +287,19 @@ export default function DashboardScreen() {
           </Card>
         </View>
       </ScrollView>
+
+      {/* Modals */}
+      <AddPatientModal
+        visible={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onPatientAdded={handleDataUpdate}
+      />
+
+      <ScheduleAppointmentModal
+        visible={showScheduleAppointmentModal}
+        onClose={() => setShowScheduleAppointmentModal(false)}
+        onAppointmentScheduled={handleDataUpdate}
+      />
     </View>
   );
 }

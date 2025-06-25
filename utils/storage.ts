@@ -14,6 +14,7 @@ export interface Patient {
   emergencyContact?: string;
   bloodGroup?: string;
   allergies?: string[];
+  createdAt?: string; // Add creation timestamp
 }
 
 export interface Prescription {
@@ -127,6 +128,7 @@ export const loadHospitalBills = () => loadFromStorage<HospitalBill>(STORAGE_KEY
 export const initializeStorage = async () => {
   const patients = await loadPatients();
   if (patients.length === 0) {
+    const today = new Date().toISOString().split('T')[0];
     const mockPatients: Patient[] = [
       {
         id: '1',
@@ -136,12 +138,13 @@ export const initializeStorage = async () => {
         phone: '+91 98765 43210',
         email: 'rajesh.kumar@email.com',
         address: '123 MG Road, Mumbai, Maharashtra',
-        lastVisit: '2024-01-15',
+        lastVisit: today, // Set to today to count as new registration
         condition: 'Hypertension',
         avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
         bloodGroup: 'B+',
         emergencyContact: '+91 87654 32109',
-        allergies: ['Penicillin']
+        allergies: ['Penicillin'],
+        createdAt: today
       },
       {
         id: '2',
@@ -155,7 +158,8 @@ export const initializeStorage = async () => {
         condition: 'Diabetes',
         avatar: 'https://images.pexels.com/photos/3823488/pexels-photo-3823488.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
         bloodGroup: 'A+',
-        emergencyContact: '+91 76543 21098'
+        emergencyContact: '+91 76543 21098',
+        createdAt: '2024-01-12'
       },
       {
         id: '3',
@@ -170,7 +174,8 @@ export const initializeStorage = async () => {
         avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
         bloodGroup: 'O+',
         emergencyContact: '+91 98765 43210',
-        allergies: ['Dust', 'Pollen']
+        allergies: ['Dust', 'Pollen'],
+        createdAt: '2024-01-10'
       },
     ];
     await savePatients(mockPatients);
@@ -232,7 +237,7 @@ export const initializeStorage = async () => {
         uploadDate: '2024-01-15',
         uploadedBy: 'Priya Sharma',
         fileSize: '2.3 MB',
-        status: 'Reviewed'
+        status: 'Pending' // Set to pending to count in dashboard
       },
       {
         id: '2',
@@ -242,7 +247,7 @@ export const initializeStorage = async () => {
         uploadDate: '2024-01-12',
         uploadedBy: 'Priya Sharma',
         fileSize: '4.1 MB',
-        status: 'Pending'
+        status: 'Pending' // Set to pending to count in dashboard
       },
     ];
     await saveReports(mockReports);
