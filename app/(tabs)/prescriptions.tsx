@@ -4,23 +4,23 @@ import Header from '@/components/ui/Header';
 import Input from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    Calendar,
-    Clock,
-    Eye,
-    FileText,
-    Pill,
-    Plus,
-    User
+  Calendar,
+  Clock,
+  Eye,
+  FileText,
+  Pill,
+  Plus,
+  User
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface Prescription {
@@ -41,8 +41,8 @@ interface Prescription {
 const mockPrescriptions: Prescription[] = [
   {
     id: '1',
-    patientName: 'John Smith',
-    doctorName: 'Dr. Michael Chen',
+    patientName: 'Rakesh ',
+    doctorName: 'Dr. Manish',
     date: '2024-01-15',
     medications: [
       {
@@ -63,8 +63,8 @@ const mockPrescriptions: Prescription[] = [
   },
   {
     id: '2',
-    patientName: 'Ritesh Johnson',
-    doctorName: 'Dr. Michael Chen',
+    patientName: 'Ritesh Jawale',
+    doctorName: 'Dr. Manish',
     date: '2024-01-12',
     medications: [
       {
@@ -79,8 +79,8 @@ const mockPrescriptions: Prescription[] = [
   },
   {
     id: '3',
-    patientName: 'Michael Brown',
-    doctorName: 'Dr. Michael Chen',
+    patientName: 'Rahul Shinde',
+    doctorName: 'Dr. Manish',
     date: '2024-01-08',
     medications: [
       {

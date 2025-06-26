@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { useRouter } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
@@ -11,7 +11,7 @@ export default function Index() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/dashboard');
       } else {
         router.replace('/login');
       }

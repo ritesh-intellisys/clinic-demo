@@ -1,9 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Upload } from 'lucide-react-native';
+import { Activity, ArrowLeft } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function UploadReportScreen() {
+export default function AnalyticsScreen() {
   const router = useRouter();
 
   return (
@@ -16,17 +15,17 @@ export default function UploadReportScreen() {
           <ArrowLeft size={24} color="#1976D2" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Upload Report</Text>
-          <Text style={styles.headerSubtitle}>Add new lab report</Text>
+          <Text style={styles.headerTitle}>Analytics</Text>
+          <Text style={styles.headerSubtitle}>Hospital performance metrics</Text>
         </View>
       </View>
 
       <View style={styles.content}>
         <View style={styles.comingSoon}>
-          <Upload size={48} color="#ccc" />
-          <Text style={styles.comingSoonTitle}>Upload Feature</Text>
+          <Activity size={48} color="#ccc" />
+          <Text style={styles.comingSoonTitle}>Analytics Dashboard</Text>
           <Text style={styles.comingSoonText}>
-            Report upload functionality will be available soon
+            Detailed analytics and reporting features will be available soon
           </Text>
         </View>
       </View>
@@ -89,4 +88,4 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-});
+}); 

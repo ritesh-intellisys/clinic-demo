@@ -1,28 +1,26 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardStats, calculateDashboardStats, initializeAppointments } from '@/utils/dashboardUtils';
 import { initializeStorage } from '@/utils/storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import {
-  Users,
-  Calendar,
-  FileText,
-  TrendingUp,
-  ChevronRight,
-  Activity,
-  Clock
+    Activity,
+    Calendar,
+    ChevronRight,
+    FileText,
+    TrendingUp,
+    Users
 } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
+import {
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -64,7 +62,7 @@ export default function DashboardScreen() {
       icon: Users,
       color: '#1976D2',
       backgroundColor: '#E3F2FD',
-      route: '/dashboard/patients',
+      route: '/patients',
       description: 'All registered patients'
     },
     {
@@ -73,7 +71,7 @@ export default function DashboardScreen() {
       icon: Calendar,
       color: '#2E7D32',
       backgroundColor: '#E8F5E8',
-      route: '/dashboard/appointments/today',
+      route: '/appointments',
       description: 'Scheduled for today'
     },
     {
@@ -82,7 +80,7 @@ export default function DashboardScreen() {
       icon: FileText,
       color: '#F57C00',
       backgroundColor: '#FFF3E0',
-      route: '/dashboard/reports/pending',
+      route: '/reports',
       description: 'Awaiting review'
     },
     {
@@ -91,7 +89,7 @@ export default function DashboardScreen() {
       icon: TrendingUp,
       color: '#7B1FA2',
       backgroundColor: '#F3E5F5',
-      route: '/dashboard/patients/new',
+      route: '/patients',
       description: 'Registered today'
     },
   ];
@@ -143,7 +141,7 @@ export default function DashboardScreen() {
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity 
               style={styles.quickAction}
-              onPress={() => router.push('/dashboard/patients/add')}
+              onPress={() => router.push('/patients')}
             >
               <View style={[styles.actionIcon, { backgroundColor: '#E3F2FD' }]}>
                 <Users size={20} color="#1976D2" />
@@ -153,7 +151,7 @@ export default function DashboardScreen() {
 
             <TouchableOpacity 
               style={styles.quickAction}
-              onPress={() => router.push('/dashboard/appointments/schedule')}
+              onPress={() => router.push('/appointments')}
             >
               <View style={[styles.actionIcon, { backgroundColor: '#E8F5E8' }]}>
                 <Calendar size={20} color="#2E7D32" />
@@ -163,7 +161,7 @@ export default function DashboardScreen() {
 
             <TouchableOpacity 
               style={styles.quickAction}
-              onPress={() => router.push('/dashboard/reports/upload')}
+              onPress={() => router.push('/reports')}
             >
               <View style={[styles.actionIcon, { backgroundColor: '#FFF3E0' }]}>
                 <FileText size={20} color="#F57C00" />
@@ -173,7 +171,7 @@ export default function DashboardScreen() {
 
             <TouchableOpacity 
               style={styles.quickAction}
-              onPress={() => router.push('/dashboard/analytics')}
+              onPress={() => router.push('/analytics')}
             >
               <View style={[styles.actionIcon, { backgroundColor: '#F3E5F5' }]}>
                 <Activity size={20} color="#7B1FA2" />

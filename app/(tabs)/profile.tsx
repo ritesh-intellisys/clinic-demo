@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar,
-  Settings,
-  LogOut,
-  Edit,
-  Bell,
-  Shield,
-  HelpCircle
-} from 'lucide-react-native';
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Bell,
+  Calendar,
+  Edit,
+  HelpCircle,
+  LogOut,
+  Mail,
+  MapPin,
+  Phone,
+  Settings,
+  Shield,
+  User
+} from 'lucide-react-native';
+import { useState } from 'react';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const profileSections = [
   {
@@ -140,7 +140,7 @@ export default function ProfileScreen() {
               <Phone size={20} color="#666" />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Phone</Text>
-                <Text style={styles.detailValue}>+1 (555) 123-4567</Text>
+                <Text style={styles.detailValue}>+91 8421596545</Text>
               </View>
             </View>
             
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
               <MapPin size={20} color="#666" />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>New York, NY</Text>
+                <Text style={styles.detailValue}>Hinjawadi, Pune</Text>
               </View>
             </View>
             
