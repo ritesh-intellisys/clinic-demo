@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, loadAppointments } from '@/utils/dashboardUtils';
-import { Patient, loadPatients } from '@/utils/storage';
+import { loadPatients, Patient } from '@/utils/storage';
 import { useRouter } from 'expo-router';
 import {
     Calendar,
@@ -14,13 +14,7 @@ import {
     User
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AppointmentsScreen() {
   const { user } = useAuth();

@@ -3,19 +3,18 @@ import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import Input from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
-import { loadReports, saveReports, Report, initializeStorage } from '@/utils/storage';
+import { Report, initializeStorage, loadReports, saveReports } from '@/utils/storage';
 import * as DocumentPicker from 'expo-document-picker';
 import {
     Calendar,
+    Edit,
     Eye,
     FileText,
+    Trash2,
     Upload,
-    User,
-    Download,
-    Edit,
-    Trash2
+    User
 } from 'lucide-react-native';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     Modal,

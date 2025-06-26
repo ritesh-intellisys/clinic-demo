@@ -1,26 +1,20 @@
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import { useAuth } from '@/contexts/AuthContext';
-import { DashboardStats, calculateDashboardStats, initializeAppointments } from '@/utils/dashboardUtils';
+import { calculateDashboardStats, DashboardStats, initializeAppointments } from '@/utils/dashboardUtils';
 import { initializeStorage } from '@/utils/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
     Activity,
+    ArrowRight,
     Calendar,
-    ChevronRight,
     FileText,
     TrendingUp,
     Users
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -124,7 +118,7 @@ export default function DashboardScreen() {
                       <View style={styles.statCardIcon}>
                         <IconComponent size={24} color={card.color} />
                       </View>
-                      <ChevronRight size={16} color="#666" />
+                      <ArrowRight size={16} color="#666" />
                     </View>
                     <Text style={styles.statNumber}>{card.value}</Text>
                     <Text style={styles.statLabel}>{card.title}</Text>

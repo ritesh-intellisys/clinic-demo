@@ -1,485 +1,257 @@
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
-import Input from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
-import { Patient, initializeStorage, loadPatients, savePatients } from '@/utils/storage';
 import {
-  AlertTriangle,
-  Calendar,
-  Edit,
-  Eye,
-  Heart,
-  Mail,
-  MapPin,
-  Phone,
-  Plus,
-  Search,
-  User
-} from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+  loadHospitalBills,
+  loadMedicineBills,
+  loadPatients,
+  loadPrescriptions,
+  loadReports,
+  Patient
+} from '@/utils/storage';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
-  Modal,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
-type PatientFormData = {
-  name: string;
-  age: string;
-  gender: 'Male' | 'Female' | 'Other';
-  phone: string;
-  email: string;
-  address: string;
-  condition: string;
-  bloodGroup: string;
-  emergencyContact: string;
-  allergies: string;
-};
+interface PatientWithStats extends Patient {
+  prescriptionCount: number;
+  reportCount: number;
+  totalBills: number;
+  lastPrescription?: string;
+}
 
 export default function PatientsScreen() {
   const { user } = useAuth();
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const router = useRouter();
+  const [patients, setPatients] = useState<PatientWithStats[]>([]);
+  const [filteredPatients, setFilteredPatients] = useState<PatientWithStats[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [newPatient, setNewPatient] = useState<PatientFormData>({
-    name: '',
-    age: '',
-    gender: 'Male',
-    phone: '',
-    email: '',
-    address: '',
-    condition: '',
-    bloodGroup: '',
-    emergencyContact: '',
-    allergies: '',
-  });
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'recent' | 'active'>('all');
 
   useEffect(() => {
-    loadPatientsData();
+    loadPatientData();
   }, []);
 
-  const loadPatientsData = async () => {
-    await initializeStorage();
-    const patientsData = await loadPatients();
-    setPatients(patientsData);
+  useEffect(() => {
+    filterPatients();
+  }, [searchQuery, filter, patients]);
+
+  const loadPatientData = async () => {
+    try {
+      setLoading(true);
+      const [patientsData, prescriptions, reports, medicineBills, hospitalBills] = await Promise.all([
+        loadPatients(),
+        loadPrescriptions(),
+        loadReports(),
+        loadMedicineBills(),
+        loadHospitalBills(),
+      ]);
+
+      const patientsWithStats: PatientWithStats[] = patientsData.map(patient => {
+        const patientPrescriptions = prescriptions.filter(p => p.patientName === patient.name);
+        const patientReports = reports.filter(r => r.patientName === patient.name);
+        const patientMedicineBills = medicineBills.filter(b => b.patientName === patient.name);
+        const patientHospitalBills = hospitalBills.filter(b => b.patientName === patient.name);
+
+        return {
+          ...patient,
+          prescriptionCount: patientPrescriptions.length,
+          reportCount: patientReports.length,
+          totalBills: patientMedicineBills.length + patientHospitalBills.length,
+          lastPrescription: patientPrescriptions.length > 0 
+            ? patientPrescriptions[patientPrescriptions.length - 1].date 
+            : undefined,
+        };
+      });
+
+      setPatients(patientsWithStats);
+    } catch (error) {
+      console.error('Error loading patient data:', error);
+      Alert.alert('Error', 'Failed to load patient data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredPatients = patients.filter(patient =>
+  const filterPatients = () => {
+    let filtered = patients;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(patient =>
     patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.condition.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.phone.includes(searchQuery)
+        patient.phone.includes(searchQuery) ||
+        patient.email.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply category filter
+    switch (filter) {
+      case 'recent':
+        const today = new Date();
+        const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        filtered = filtered.filter(patient => {
+          const lastVisit = new Date(patient.lastVisit);
+          return lastVisit >= sevenDaysAgo;
+        });
+        break;
+      case 'active':
+        filtered = filtered.filter(patient => patient.prescriptionCount > 0);
+        break;
+    }
+
+    setFilteredPatients(filtered);
+  };
+
+  const navigateToPatientDetail = (patient: PatientWithStats) => {
+    router.push({
+      pathname: '/patient-detail',
+      params: { patientId: patient.id }
+    });
+  };
+
+  const getStatusColor = (patient: PatientWithStats) => {
+    if (patient.prescriptionCount > 0) return '#10B981'; // Green for active
+    if (new Date(patient.lastVisit) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) {
+      return '#F59E0B'; // Yellow for recent
+    }
+    return '#6B7280'; // Gray for inactive
+  };
+
+  const renderPatientCard = ({ item }: { item: PatientWithStats }) => (
+    <TouchableOpacity
+      style={styles.patientCard}
+      onPress={() => navigateToPatientDetail(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>
+            {item.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.patientInfo}>
+          <Text style={styles.patientName}>{item.name}</Text>
+          <Text style={styles.patientDetails}>
+            {item.age} years • {item.gender} • {item.bloodGroup || 'N/A'}
+          </Text>
+          <Text style={styles.patientContact}>{item.phone}</Text>
+        </View>
+        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item) }]} />
+      </View>
+
+      <View style={styles.cardStats}>
+        <View style={styles.statItem}>
+          <Ionicons name="medical" size={16} color="#6B7280" />
+          <Text style={styles.statText}>{item.prescriptionCount} Rx</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="document-text" size={16} color="#6B7280" />
+          <Text style={styles.statText}>{item.reportCount} Reports</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="card" size={16} color="#6B7280" />
+          <Text style={styles.statText}>{item.totalBills} Bills</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.lastVisit}>
+          Last visit: {new Date(item.lastVisit).toLocaleDateString()}
+        </Text>
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </View>
+    </TouchableOpacity>
   );
 
-  const handleAddPatient = async () => {
-    if (!newPatient.name || !newPatient.age || !newPatient.phone) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
+  const renderFilterButton = (filterType: 'all' | 'recent' | 'active', label: string) => (
+    <TouchableOpacity
+      style={[styles.filterButton, filter === filterType && styles.filterButtonActive]}
+      onPress={() => setFilter(filterType)}
+    >
+      <Text style={[styles.filterButtonText, filter === filterType && styles.filterButtonTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
 
-    const patient: Patient = {
-      id: Date.now().toString(),
-      name: newPatient.name,
-      age: parseInt(newPatient.age),
-      gender: newPatient.gender,
-      phone: newPatient.phone,
-      email: newPatient.email,
-      address: newPatient.address,
-      condition: newPatient.condition,
-      lastVisit: new Date().toISOString().split('T')[0],
-      avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
-      bloodGroup: newPatient.bloodGroup,
-      emergencyContact: newPatient.emergencyContact,
-      allergies: newPatient.allergies
-        ? newPatient.allergies.split(',').map((a: string) => a.trim()).filter((a: string) => a !== '')
-        : []
-    };
-
-    const updatedPatients = [...patients, patient];
-    setPatients(updatedPatients);
-    await savePatients(updatedPatients);
-    
-    setNewPatient({
-      name: '',
-      age: '',
-      gender: 'Male',
-      phone: '',
-      email: '',
-      address: '',
-      condition: '',
-      bloodGroup: '',
-      emergencyContact: '',
-      allergies: '',
-    });
-    setShowAddModal(false);
-    Alert.alert('Success', 'Patient added successfully');
-  };
-
-  const handleEditPatient = async () => {
-    if (!editingPatient || !editingPatient.name || !editingPatient.age || !editingPatient.phone) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    const updatedPatients = patients.map(p => 
-      p.id === editingPatient.id ? {
-        ...editingPatient,
-        allergies: typeof editingPatient.allergies === 'string' 
-          ? editingPatient.allergies.split(',').map((a: string) => a.trim()).filter((a: string) => a !== '')
-          : editingPatient.allergies || []
-      } : p
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={styles.loadingText}>Loading patients...</Text>
+      </View>
     );
-    
-    setPatients(updatedPatients);
-    await savePatients(updatedPatients);
-    setShowEditModal(false);
-    setEditingPatient(null);
-    Alert.alert('Success', 'Patient updated successfully');
-  };
-
-  const openEditModal = (patient: Patient) => {
-    setEditingPatient({
-      ...patient,
-      allergies: Array.isArray(patient.allergies) 
-        ? patient.allergies.join(', ') 
-        : patient.allergies || ''
-    });
-    setShowEditModal(true);
-  };
-
-  const canEdit = user?.role === 'receptionist';
-  const canView = user?.role === 'doctor' || user?.role === 'receptionist';
+  }
 
   return (
     <View style={styles.container}>
-      <Header 
-        title="Patients" 
-        subtitle={`${filteredPatients.length} patients`}
-        rightComponent={
-          canEdit ? (
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={() => setShowAddModal(true)}
-            >
-              <Plus size={20} color="#fff" />
-            </TouchableOpacity>
-          ) : null
+      <Header title="Patients" subtitle="Manage patient records" />
+      
+        <View style={styles.searchContainer}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={20} color="#9CA3AF" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search patients by name, phone, or email..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#9CA3AF"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              
+      <View style={styles.filterContainer}>
+        {renderFilterButton('all', 'All Patients')}
+        {renderFilterButton('recent', 'Recent')}
+        {renderFilterButton('active', 'Active')}
+                </View>
+
+      <View style={styles.statsContainer}>
+        <Text style={styles.statsText}>
+          {filteredPatients.length} patient{filteredPatients.length !== 1 ? 's' : ''} found
+        </Text>
+      </View>
+
+      <FlatList
+        data={filteredPatients}
+        renderItem={renderPatientCard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={64} color="#9CA3AF" />
+            <Text style={styles.emptyTitle}>No patients found</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery ? 'Try adjusting your search terms' : 'Add your first patient to get started'}
+            </Text>
+          </View>
         }
       />
 
-      <View style={styles.content}>
-        <View style={styles.searchContainer}>
-          <Search size={20} color="#666" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search patients..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        <ScrollView style={styles.patientsList} showsVerticalScrollIndicator={false}>
-          {filteredPatients.map((patient) => (
-            <Card key={patient.id} style={styles.patientCard}>
-              <View style={styles.patientHeader}>
-                <View style={styles.patientInfo}>
-                  <View style={styles.avatar}>
-                    <User size={24} color="#1976D2" />
-                  </View>
-                  <View style={styles.patientDetails}>
-                    <Text style={styles.patientName}>{patient.name}</Text>
-                    <Text style={styles.patientMeta}>
-                      {patient.age} years • {patient.gender}
-                    </Text>
-                    <Text style={styles.patientCondition}>{patient.condition}</Text>
-                    {patient.bloodGroup && (
-                      <View style={styles.bloodGroupContainer}>
-                        <Heart size={12} color="#D32F2F" />
-                        <Text style={styles.bloodGroup}>{patient.bloodGroup}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.patientActions}>
-                  {canView && (
-                    <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={() => setSelectedPatient(patient)}
-                    >
-                      <Eye size={18} color="#1976D2" />
-                    </TouchableOpacity>
-                  )}
-                  {canEdit && (
-                    <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={() => openEditModal(patient)}
-                    >
-                      <Edit size={18} color="#666" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-              
-              <View style={styles.patientContact}>
-                <View style={styles.contactItem}>
-                  <Phone size={14} color="#666" />
-                  <Text style={styles.contactText}>{patient.phone}</Text>
-                </View>
-                <View style={styles.contactItem}>
-                  <Calendar size={14} color="#666" />
-                  <Text style={styles.contactText}>Last visit: {patient.lastVisit}</Text>
-                </View>
-              </View>
-            </Card>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Add Patient Modal */}
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/add-patient')}
+        activeOpacity={0.8}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Patient</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <Text style={styles.cancelButton}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.modalContent}>
-            <Input
-              placeholder="Full Name *"
-              value={newPatient.name}
-              onChangeText={(text) => setNewPatient({...newPatient, name: text})}
-            />
-            <Input
-              placeholder="Age *"
-              value={newPatient.age}
-              onChangeText={(text) => setNewPatient({...newPatient, age: text})}
-              keyboardType="numeric"
-            />
-            <Input
-              placeholder="Phone Number *"
-              value={newPatient.phone}
-              onChangeText={(text) => setNewPatient({...newPatient, phone: text})}
-              keyboardType="phone-pad"
-            />
-            <Input
-              placeholder="Email Address"
-              value={newPatient.email}
-              onChangeText={(text) => setNewPatient({...newPatient, email: text})}
-              keyboardType="email-address"
-            />
-            <Input
-              placeholder="Address"
-              value={newPatient.address}
-              onChangeText={(text) => setNewPatient({...newPatient, address: text})}
-              multiline
-            />
-            <Input
-              placeholder="Medical Condition"
-              value={newPatient.condition}
-              onChangeText={(text) => setNewPatient({...newPatient, condition: text})}
-            />
-            <Input
-              placeholder="Blood Group (e.g., A+, B-, O+)"
-              value={newPatient.bloodGroup}
-              onChangeText={(text) => setNewPatient({...newPatient, bloodGroup: text})}
-            />
-            <Input
-              placeholder="Emergency Contact"
-              value={newPatient.emergencyContact}
-              onChangeText={(text) => setNewPatient({...newPatient, emergencyContact: text})}
-              keyboardType="phone-pad"
-            />
-            <Input
-              placeholder="Allergies (comma separated)"
-              value={newPatient.allergies}
-              onChangeText={(text) => setNewPatient({...newPatient, allergies: text})}
-              multiline
-            />
-            
-            <Button
-              title="Add Patient"
-              onPress={handleAddPatient}
-              style={styles.addPatientButton}
-            />
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Edit Patient Modal */}
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        {editingPatient && (
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Patient</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Text style={styles.cancelButton}>Cancel</Text>
+        <Ionicons name="add" size={24} color="white" />
               </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalContent}>
-              <Input
-                placeholder="Full Name *"
-                value={editingPatient.name}
-                onChangeText={(text) => setEditingPatient({...editingPatient, name: text})}
-              />
-              <Input
-                placeholder="Age *"
-                value={editingPatient.age.toString()}
-                onChangeText={(text) => setEditingPatient({...editingPatient, age: parseInt(text) || 0})}
-                keyboardType="numeric"
-              />
-              <Input
-                placeholder="Phone Number *"
-                value={editingPatient.phone}
-                onChangeText={(text) => setEditingPatient({...editingPatient, phone: text})}
-                keyboardType="phone-pad"
-              />
-              <Input
-                placeholder="Email Address"
-                value={editingPatient.email}
-                onChangeText={(text) => setEditingPatient({...editingPatient, email: text})}
-                keyboardType="email-address"
-              />
-              <Input
-                placeholder="Address"
-                value={editingPatient.address}
-                onChangeText={(text) => setEditingPatient({...editingPatient, address: text})}
-                multiline
-              />
-              <Input
-                placeholder="Medical Condition"
-                value={editingPatient.condition}
-                onChangeText={(text) => setEditingPatient({...editingPatient, condition: text})}
-              />
-              <Input
-                placeholder="Blood Group (e.g., A+, B-, O+)"
-                value={editingPatient.bloodGroup || ''}
-                onChangeText={(text) => setEditingPatient({...editingPatient, bloodGroup: text})}
-              />
-              <Input
-                placeholder="Emergency Contact"
-                value={editingPatient.emergencyContact || ''}
-                onChangeText={(text) => setEditingPatient({...editingPatient, emergencyContact: text})}
-                keyboardType="phone-pad"
-              />
-              <Input
-                placeholder="Allergies (comma separated)"
-                value={typeof editingPatient.allergies === 'string' 
-                  ? editingPatient.allergies 
-                  : (editingPatient.allergies || []).join(', ')}
-                onChangeText={(text) => setEditingPatient({...editingPatient, allergies: text})}
-                multiline
-              />
-              
-              <Button
-                title="Update Patient"
-                onPress={handleEditPatient}
-                style={styles.addPatientButton}
-              />
-            </ScrollView>
-          </View>
-        )}
-      </Modal>
-
-      {/* Patient Details Modal */}
-      <Modal
-        visible={!!selectedPatient}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        {selectedPatient && (
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Patient Details</Text>
-              <TouchableOpacity onPress={() => setSelectedPatient(null)}>
-                <Text style={styles.cancelButton}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalContent}>
-              <View style={styles.patientProfile}>
-                <View style={styles.profileAvatar}>
-                  <User size={40} color="#1976D2" />
-                </View>
-                <Text style={styles.profileName}>{selectedPatient.name}</Text>
-                <Text style={styles.profileMeta}>
-                  {selectedPatient.age} years • {selectedPatient.gender}
-                </Text>
-                {selectedPatient.bloodGroup && (
-                  <View style={styles.bloodGroupContainer}>
-                    <Heart size={16} color="#D32F2F" />
-                    <Text style={styles.profileBloodGroup}>{selectedPatient.bloodGroup}</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.detailsSection}>
-                <View style={styles.detailItem}>
-                  <Phone size={20} color="#666" />
-                  <Text style={styles.detailText}>{selectedPatient.phone}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Mail size={20} color="#666" />
-                  <Text style={styles.detailText}>{selectedPatient.email}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MapPin size={20} color="#666" />
-                  <Text style={styles.detailText}>{selectedPatient.address}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Calendar size={20} color="#666" />
-                  <Text style={styles.detailText}>Last visit: {selectedPatient.lastVisit}</Text>
-                </View>
-                {selectedPatient.emergencyContact && (
-                  <View style={styles.detailItem}>
-                    <Phone size={20} color="#D32F2F" />
-                    <Text style={styles.detailText}>Emergency: {selectedPatient.emergencyContact}</Text>
-                  </View>
-                )}
-              </View>
-
-              <Card style={styles.conditionCard}>
-                <Text style={styles.conditionTitle}>Medical Condition</Text>
-                <Text style={styles.conditionText}>{selectedPatient.condition}</Text>
-              </Card>
-
-              {selectedPatient.allergies && selectedPatient.allergies.length > 0 && (
-                <Card style={styles.allergiesCard}>
-                  <View style={styles.allergiesHeader}>
-                    <AlertTriangle size={20} color="#F57C00" />
-                    <Text style={styles.allergiesTitle}>Allergies</Text>
-                  </View>
-                  <View style={styles.allergiesList}>
-                    {(Array.isArray(selectedPatient.allergies) ? selectedPatient.allergies : []).map((allergy, index) => (
-                      <View key={index} style={styles.allergyItem}>
-                        <Text style={styles.allergyText}>{allergy}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </Card>
-              )}
-            </ScrollView>
-          </View>
-        )}
-      </Modal>
     </View>
   );
 }
@@ -487,245 +259,202 @@ export default function PatientsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F9FAFB',
   },
-  content: {
+  loadingContainer: {
     flex: 1,
-    paddingHorizontal: 16,
-  },
-  addButton: {
-    backgroundColor: '#1976D2',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+    fontFamily: 'Roboto-Regular',
   },
   searchContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
-    elevation: 2,
+    paddingVertical: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-  },
-  searchIcon: {
-    marginRight: 12,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 16,
+    marginLeft: 12,
     fontSize: 16,
+    color: '#1F2937',
     fontFamily: 'Roboto-Regular',
-    color: '#1a1a1a',
   },
-  patientsList: {
-    flex: 1,
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterButtonActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Roboto-Medium',
+  },
+  filterButtonTextActive: {
+    color: 'white',
+  },
+  statsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  statsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Roboto-Regular',
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   patientCard: {
-    marginBottom: 12,
+    backgroundColor: 'white',
+    borderRadius: 16,
     padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  patientHeader: {
+  cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  patientInfo: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  avatar: {
+  avatarContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  patientDetails: {
+  avatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    fontFamily: 'Roboto-Bold',
+  },
+  patientInfo: {
     flex: 1,
   },
   patientName: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
     fontFamily: 'Roboto-Bold',
-    color: '#1a1a1a',
-    marginBottom: 4,
   },
-  patientMeta: {
-    fontSize: 12,
+  patientDetails: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
     fontFamily: 'Roboto-Regular',
-    color: '#666',
-    marginBottom: 4,
-  },
-  patientCondition: {
-    fontSize: 12,
-    fontFamily: 'Roboto-Medium',
-    color: '#1976D2',
-    marginBottom: 4,
-  },
-  bloodGroupContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bloodGroup: {
-    fontSize: 12,
-    fontFamily: 'Roboto-Medium',
-    color: '#D32F2F',
-    marginLeft: 4,
-  },
-  patientActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 8,
-    marginLeft: 4,
   },
   patientContact: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  contactText: {
-    fontSize: 12,
-    fontFamily: 'Roboto-Regular',
-    color: '#666',
-    marginLeft: 6,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: 'Roboto-Bold',
-    color: '#1a1a1a',
-  },
-  cancelButton: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#3B82F6',
     fontFamily: 'Roboto-Medium',
-    color: '#1976D2',
   },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
-  addPatientButton: {
-    marginTop: 24,
-    marginBottom: 32,
+  cardStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  patientProfile: {
+  statItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
+    gap: 4,
   },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E3F2FD',
+  statText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Roboto-Medium',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  lastVisit: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontFamily: 'Roboto-Regular',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    marginTop: 16,
+    marginBottom: 8,
+    fontFamily: 'Roboto-Bold',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontFamily: 'Roboto-Regular',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  profileName: {
-    fontSize: 24,
-    fontFamily: 'Roboto-Bold',
-    color: '#1a1a1a',
-    marginBottom: 8,
-  },
-  profileMeta: {
-    fontSize: 16,
-    fontFamily: 'Roboto-Regular',
-    color: '#666',
-    marginBottom: 8,
-  },
-  profileBloodGroup: {
-    fontSize: 16,
-    fontFamily: 'Roboto-Bold',
-    color: '#D32F2F',
-    marginLeft: 8,
-  },
-  detailsSection: {
-    marginBottom: 24,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  detailText: {
-    fontSize: 16,
-    fontFamily: 'Roboto-Regular',
-    color: '#1a1a1a',
-    marginLeft: 16,
-  },
-  conditionCard: {
-    backgroundColor: '#E3F2FD',
-    marginBottom: 16,
-  },
-  conditionTitle: {
-    fontSize: 16,
-    fontFamily: 'Roboto-Bold',
-    color: '#1976D2',
-    marginBottom: 8,
-  },
-  conditionText: {
-    fontSize: 14,
-    fontFamily: 'Roboto-Regular',
-    color: '#1a1a1a',
-  },
-  allergiesCard: {
-    backgroundColor: '#FFF3E0',
-    marginBottom: 32,
-  },
-  allergiesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  allergiesTitle: {
-    fontSize: 16,
-    fontFamily: 'Roboto-Bold',
-    color: '#F57C00',
-    marginLeft: 8,
-  },
-  allergiesList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  allergyItem: {
-    backgroundColor: '#FFE0B2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  allergyText: {
-    fontSize: 12,
-    fontFamily: 'Roboto-Medium',
-    color: '#E65100',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

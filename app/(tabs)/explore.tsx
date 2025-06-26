@@ -136,4 +136,4 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 24,
   },
-}); 
+});

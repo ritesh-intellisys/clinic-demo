@@ -3,6 +3,7 @@ import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 import Input from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
+import { Prescription } from '@/utils/storage';
 import {
   Calendar,
   Clock,
@@ -22,21 +23,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-interface Prescription {
-  id: string;
-  patientName: string;
-  doctorName: string;
-  date: string;
-  medications: {
-    name: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-  }[];
-  notes: string;
-  status: 'Active' | 'Completed' | 'Expired';
-}
 
 const mockPrescriptions: Prescription[] = [
   {
